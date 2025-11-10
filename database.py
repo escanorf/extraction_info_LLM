@@ -1,13 +1,15 @@
-import os
-import psycopg2
-import psycopg2.extras
-import bcrypt
-import streamlit as st
+import hashlib  # Importation pour le hachage
 import json
-import hashlib # Importation pour le hachage
+import os
 from urllib.parse import urlparse
 
+import bcrypt
+import psycopg2
+import psycopg2.extras
+import streamlit as st
+
 # --- Database Connection ---
+
 
 # Utilise les secrets de Streamlit pour les détails de connexion
 def get_db_connection():
@@ -18,22 +20,26 @@ def get_db_connection():
             dbname=st.secrets["postgres"]["dbname"],
             user=st.secrets["postgres"]["user"],
             password=st.secrets["postgres"]["password"],
-            port=st.secrets["postgres"]["port"]
+            port=st.secrets["postgres"]["port"],
         )
         return conn
     except Exception as e:
         st.error(f"Erreur de connexion à la base de données : {e}")
         return None
 
+
 # --- Schema Initialization ---
+
 
 def init_db():
     """Initialise la base de données en créant les tables si elles n'existent pas et en ajoutant des colonnes/contraintes si nécessaire."""
     conn = get_db_connection()
     if conn is None:
-        st.error("La connexion à la base de données a échoué, impossible d'initialiser.")
+        st.error(
+            "La connexion à la base de données a échoué, impossible d'initialiser."
+        )
         return
-        
+
     try:
         with conn.cursor() as cur:
             # Table pour les utilisateurs
@@ -67,7 +73,7 @@ def init_db():
                     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
                 );
             """)
-            
+
             # Ajout de la colonne content_hash si elle n'existe pas
             cur.execute("""
                 DO $$
@@ -97,27 +103,32 @@ def init_db():
         if conn:
             conn.close()
 
+
 # --- User Management ---
+
 
 def hash_password(password):
     """Hashe un mot de passe en utilisant bcrypt."""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def check_password(password, hashed_password):
     """Vérifie un mot de passe par rapport à un hash stocké."""
-    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+    return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
+
 
 def add_user(username, password):
     """Ajoute un nouvel utilisateur à la base de données."""
     conn = get_db_connection()
-    if conn is None: return False, "Connexion à la base de données échouée."
-    
+    if conn is None:
+        return False, "Connexion à la base de données échouée."
+
     password_hash = hash_password(password)
     try:
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-                (username, password_hash)
+                (username, password_hash),
             )
         conn.commit()
         return True, "Utilisateur créé avec succès."
@@ -129,11 +140,13 @@ def add_user(username, password):
         if conn:
             conn.close()
 
+
 def get_user(username):
     """Récupère un utilisateur par son nom d'utilisateur."""
     conn = get_db_connection()
-    if conn is None: return None
-    
+    if conn is None:
+        return None
+
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM users WHERE username = %s", (username,))
@@ -146,16 +159,18 @@ def get_user(username):
         if conn:
             conn.close()
 
+
 def update_user_prompt(user_id, prompt_content):
     """Met à jour le prompt système personnalisé d'un utilisateur."""
     conn = get_db_connection()
-    if conn is None: return False, "Connexion à la base de données échouée."
+    if conn is None:
+        return False, "Connexion à la base de données échouée."
 
     try:
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE users SET custom_system_prompt = %s WHERE id = %s",
-                (prompt_content, user_id)
+                (prompt_content, user_id),
             )
         conn.commit()
         return True, "Prompt utilisateur mis à jour avec succès."
@@ -165,23 +180,28 @@ def update_user_prompt(user_id, prompt_content):
         if conn:
             conn.close()
 
+
 # --- Extractions Management ---
+
 
 def calculate_content_hash(content):
     """Calcule le hash SHA256 du contenu donné."""
-    return hashlib.sha256(content.encode('utf-8')).hexdigest()
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
 
 def add_extraction(user_id, original_content, extracted_data, content_hash):
     """Ajoute ou met à jour un enregistrement d'extraction dans la base de données."""
     conn = get_db_connection()
-    if conn is None: return False, "Connexion à la base de données échouée."
-    
+    if conn is None:
+        return False, "Connexion à la base de données échouée."
+
     try:
         with conn.cursor() as cur:
             if not isinstance(extracted_data, str):
                 extracted_data = json.dumps(extracted_data)
 
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO extractions (user_id, original_content, extracted_data, content_hash)
                 VALUES (%s, %s, %s::jsonb, %s)
                 ON CONFLICT (user_id, content_hash) DO UPDATE SET
@@ -189,7 +209,7 @@ def add_extraction(user_id, original_content, extracted_data, content_hash):
                     extracted_data = EXCLUDED.extracted_data,
                     created_at = CURRENT_TIMESTAMP
             """,
-            (user_id, original_content, extracted_data, content_hash)
+                (user_id, original_content, extracted_data, content_hash),
             )
         conn.commit()
         return True, "Extraction ajoutée/mise à jour avec succès."
@@ -199,16 +219,18 @@ def add_extraction(user_id, original_content, extracted_data, content_hash):
         if conn:
             conn.close()
 
+
 def get_extractions_by_user(user_id):
     """Récupère toutes les extractions pour un utilisateur donné."""
     conn = get_db_connection()
-    if conn is None: return []
-    
+    if conn is None:
+        return []
+
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 "SELECT id, extracted_data, created_at FROM extractions WHERE user_id = %s ORDER BY created_at DESC",
-                (user_id,)
+                (user_id,),
             )
             extractions = cur.fetchall()
             return extractions
