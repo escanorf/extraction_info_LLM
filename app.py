@@ -18,23 +18,7 @@ st.set_page_config(page_title="Analyseur d'Articles", layout="wide")
 # Crée les tables `users` et `extractions` si elles n'existent pas
 database.init_db()
 
-# --- Test de connexion Supabase (Temporaire) ---
-import psycopg2
-try:
-    conn_test = psycopg2.connect(
-        host=st.secrets["postgres"]["host"],
-        dbname=st.secrets["postgres"]["dbname"],
-        user=st.secrets["postgres"]["user"],
-        password=st.secrets["postgres"]["password"],
-        port=st.secrets["postgres"]["port"],
-        connect_timeout=10 # Ajoute un timeout pour éviter une attente trop longue
-    )
-    st.success("✅ Test de connexion directe à Supabase réussi !")
-    conn_test.close()
-except Exception as e:
-    st.error(f"❌ Échec du test de connexion directe à Supabase : {e}")
-    st.info("Vérifiez les logs de votre application sur Streamlit Cloud pour plus de détails.")
-# --- Fin du test de connexion Supabase (Temporaire) ---
+
 
 # --- Initialisation de l'État de Session ---
 if 'logged_in' not in st.session_state:

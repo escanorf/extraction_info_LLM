@@ -15,26 +15,13 @@ import streamlit as st
 def get_db_connection():
     """Établit une connexion à la base de données PostgreSQL."""
     try:
-        # Debugging: Afficher les paramètres de connexion (sans le mot de passe)
-        db_host = st.secrets["postgres"]["host"]
-        db_dbname = st.secrets["postgres"]["dbname"]
-        db_user = st.secrets["postgres"]["user"]
-        db_port = st.secrets["postgres"]["port"]
-
-        st.info(f"Tentative de connexion à la base de données avec :")
-        st.info(f"  Host: {db_host}")
-        st.info(f"  Port: {db_port}")
-        st.info(f"  DB Name: {db_dbname}")
-        st.info(f"  User: {db_user}")
-
         conn = psycopg2.connect(
-            host=db_host,
-            dbname=db_dbname,
-            user=db_user,
+            host=st.secrets["postgres"]["host"],
+            dbname=st.secrets["postgres"]["dbname"],
+            user=st.secrets["postgres"]["user"],
             password=st.secrets["postgres"]["password"],
-            port=db_port,
+            port=st.secrets["postgres"]["port"],
         )
-        st.success("Connexion à la base de données établie avec succès.")
         return conn
     except Exception as e:
         st.error(f"Erreur de connexion à la base de données : {e}")
