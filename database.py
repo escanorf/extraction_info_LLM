@@ -71,12 +71,12 @@ def init_db():
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
             """)
-            # Ajout de la colonne custom_system_prompt si elle n'existe pas
+            # Ajout de la colonne selected_prompt_id si elle n'existe pas
             cur.execute("""
                 DO $$
                 BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='custom_system_prompt') THEN
-                        ALTER TABLE users ADD COLUMN custom_system_prompt TEXT;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='selected_prompt_id') THEN
+                        ALTER TABLE users ADD COLUMN selected_prompt_id VARCHAR(50) DEFAULT 'levee_fonds_esante';
                     END IF;
                 END
                 $$;
@@ -191,8 +191,8 @@ def get_user(username):
             conn.close()
 
 
-def update_user_prompt(user_id, prompt_content):
-    """Met à jour le prompt système personnalisé d'un utilisateur."""
+def update_user_prompt(user_id, prompt_id):
+    """Met à jour l'ID du prompt sélectionné par l'utilisateur."""
     conn = get_db_connection()
     if conn is None:
         return False, "Connexion à la base de données échouée."
@@ -200,8 +200,8 @@ def update_user_prompt(user_id, prompt_content):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE users SET custom_system_prompt = %s WHERE id = %s",
-                (prompt_content, user_id),
+                "UPDATE users SET selected_prompt_id = %s WHERE id = %s",
+                (prompt_id, user_id),
             )
         conn.commit()
         return True, "Prompt utilisateur mis à jour avec succès."

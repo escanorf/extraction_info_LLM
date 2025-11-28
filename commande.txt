@@ -11,11 +11,11 @@ fonctionnalité (vérifier si une ligne existe avant de l'écrire)
    2. Ouvrez votre terminal dans le dossier du projet (Documents/sprint_Ai).
    3. Activez l'environnement virtuel :
 
-   1     source venv/bin/activate
+        source venv/bin/activate
 
    4. Lancez l'application Streamlit avec la commande :
 
-   1     streamlit run app.py
+        streamlit run app.py
 
 
 PENSEZ A DEMARRER LE LLM DANS LM STUDIO  ET L'APPLICATION STREAMLIT

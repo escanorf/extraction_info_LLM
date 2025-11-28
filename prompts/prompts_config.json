@@ -1,0 +1,19 @@
+{
+  "prompts": [
+    {
+      "id": "levee_fonds_esante",
+      "name": "Levées de fonds - Health",
+      "description": "Extraction de levées de fonds pour les start-ups de la e-santé (Health)",
+      "file": "levee_fonds_health.txt",
+      "icon": "🏥",
+      "default": true
+    },
+    {
+      "id": "levee_fonds_fintech",
+      "name": "Levées de fonds - Fintech",
+      "description": "Extraction de levées de fonds pour les start-ups de la fintech",
+      "file": "levee_fonds_fintech.txt",
+      "icon": "💰"
+    }
+  ]
+}

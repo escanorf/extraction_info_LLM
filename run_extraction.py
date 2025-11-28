@@ -5,13 +5,29 @@ import os
 import shutil
 
 import requests
+from openai import OpenAI
 
 import database  # Importe notre nouveau module de base de données
 
 # --- Constantes ---
-# L'URL de l'API du LLM peut être configurée via une variable d'environnement
-# Par défaut, elle pointe vers un LLM local (ex: LM Studio)
+# Configuration de l'API LLM
+# Par défaut, utilise OpenAI API
+# Pour utiliser LM Studio, décommentez les lignes ci-dessous et commentez la configuration OpenAI
+
+# === Configuration OpenAI (par défaut) ===
+USE_OPENAI = os.getenv("USE_OPENAI", "true").lower() == "true"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv(
+    "OPENAI_MODEL", "gpt-4o-mini"
+)  # ou "gpt-4", "gpt-3.5-turbo", etc.
+
+# === Configuration LM Studio (alternative) ===
+# Pour utiliser LM Studio à la place d'OpenAI :
+# 1. Définissez USE_OPENAI=false dans votre .env
+# 2. Définissez LLM_API_URL=http://localhost:1234/v1/chat/completions dans votre .env
+# LM Studio utilise une API compatible OpenAI, donc le même format de requête fonctionne
 LLM_API_URL = os.getenv("LLM_API_URL", "http://localhost:1234/v1/chat/completions")
+
 SYSTEM_PROMPT_FILE = "system_prompt.txt"
 SOURCE_DIR = "a_traiter"
 PROCESSED_DIR = "traites"
@@ -31,35 +47,57 @@ def load_system_prompt():
 
 def extract_data_from_llm(article_text, system_prompt, max_retries=2):
     """
-    Envoie le texte de l'article à l'API du LLM local ou distant et tente d'extraire un JSON valide.
+    Envoie le texte de l'article à l'API du LLM (OpenAI ou LM Studio) et tente d'extraire un JSON valide.
     Inclut une logique de réparation en cas d'échec.
+
+    Si USE_OPENAI=true : utilise l'API OpenAI officielle
+    Si USE_OPENAI=false : utilise LM Studio (ou autre API compatible OpenAI)
     """
-    headers = {"Content-Type": "application/json"}
-
-    # Ajoute la clé API si elle est configurée (pour les services distants)
-    llm_api_key = os.getenv("LLM_API_KEY")
-    if llm_api_key:
-        # Exemple pour une clé Bearer (courant pour OpenAI, Gemini, etc.)
-        headers["Authorization"] = f"Bearer {llm_api_key}"
-        # Si le service utilise un autre type d'authentification, cela devra être adapté ici.
-
     history = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": article_text},
     ]
 
     for attempt in range(max_retries + 1):
-        payload = {
-            "messages": history,
-            "temperature": 0.1,
-            "max_tokens": 2000,
-            "stream": False,
-        }
         try:
-            response = requests.post(LLM_API_URL, headers=headers, json=payload)
-            response.raise_for_status()
+            if USE_OPENAI:
+                # === Utilisation de l'API OpenAI officielle ===
+                if not OPENAI_API_KEY:
+                    print(
+                        "ERREUR: OPENAI_API_KEY n'est pas définie dans les variables d'environnement."
+                    )
+                    return None
 
-            llm_response_text = response.json()["choices"][0]["message"]["content"]
+                client = OpenAI(api_key=OPENAI_API_KEY)
+
+                response = client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=history,
+                    temperature=0.1,
+                    max_tokens=2000,
+                )
+
+                llm_response_text = response.choices[0].message.content
+
+            else:
+                # === Utilisation de LM Studio (ou autre API compatible) ===
+                headers = {"Content-Type": "application/json"}
+
+                # Ajoute la clé API si elle est configurée (optionnel pour LM Studio local)
+                llm_api_key = os.getenv("LLM_API_KEY")
+                if llm_api_key:
+                    headers["Authorization"] = f"Bearer {llm_api_key}"
+
+                payload = {
+                    "messages": history,
+                    "temperature": 0.1,
+                    "max_tokens": 2000,
+                    "stream": False,
+                }
+
+                response = requests.post(LLM_API_URL, headers=headers, json=payload)
+                response.raise_for_status()
+                llm_response_text = response.json()["choices"][0]["message"]["content"]
 
             # Essayer de parser le JSON
             json_start = llm_response_text.find("{")
@@ -86,6 +124,9 @@ def extract_data_from_llm(article_text, system_prompt, max_retries=2):
                 return None
         except requests.exceptions.RequestException as e:
             print(f"Erreur de connexion à l'API du LLM: {e}")
+            return None
+        except Exception as e:
+            print(f"Erreur inattendue: {e}")
             return None
     return None
 

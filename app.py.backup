@@ -11,7 +11,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Importe les fonctions de la base de données et de l'extraction LLM
 import database
-import prompt_manager
 from run_extraction import SYSTEM_PROMPT_FILE, extract_data_from_llm
 from wordpress_connector import WordPressConnector
 
@@ -319,19 +318,14 @@ else:
                 with st.spinner("Analyse en cours... Le LLM réfléchit..."):
                     try:
                         # Déterminer le prompt système à utiliser
-                        prompt_id = (
-                            st.session_state.user_data.get("selected_prompt_id")
-                            if st.session_state.user_data
-                            else None
-                        )
-                        if not prompt_id:
-                            prompt_id = prompt_manager.get_default_prompt_id()
-
-                        system_prompt_to_use = prompt_manager.get_prompt_by_id(
-                            prompt_id
-                        )
-                        if not system_prompt_to_use:
-                            # Fallback sur le fichier par défaut
+                        if (
+                            st.session_state.user_data
+                            and st.session_state.user_data["custom_system_prompt"]
+                        ):
+                            system_prompt_to_use = st.session_state.user_data[
+                                "custom_system_prompt"
+                            ]
+                        else:
                             with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as f:
                                 system_prompt_to_use = f.read()
 
@@ -524,90 +518,78 @@ else:
 
                     # Filtres
                     with st.expander("🎛️ Filtres", expanded=False):
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            search_term = st.text_input(
-                                "Rechercher", placeholder="Mot-clé..."
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        search_term = st.text_input(
+                            "Rechercher", placeholder="Mot-clé..."
+                        )
+                        per_page = st.slider("Articles par page", 5, 50, 20)
+
+                    with col2:
+                        # Filtre par date
+                        date_filter = st.selectbox(
+                            "Période",
+                            options=[
+                                "Tous",
+                                "Dernière semaine",
+                                "Dernier mois",
+                                "3 derniers mois",
+                                "6 derniers mois",
+                                "Dernière année",
+                                "Personnalisé",
+                            ],
+                            index=0,
+                        )
+
+                        date_after = None
+                        date_before = None
+
+                        if date_filter != "Tous":
+                            today = datetime.now()
+
+                            if date_filter == "Dernière semaine":
+                                date_after = (today - timedelta(days=7)).isoformat()
+                            elif date_filter == "Dernier mois":
+                                date_after = (today - timedelta(days=30)).isoformat()
+                            elif date_filter == "3 derniers mois":
+                                date_after = (today - timedelta(days=90)).isoformat()
+                            elif date_filter == "6 derniers mois":
+                                date_after = (today - timedelta(days=180)).isoformat()
+                            elif date_filter == "Dernière année":
+                                date_after = (today - timedelta(days=365)).isoformat()
+                            elif date_filter == "Personnalisé":
+                                col_date1, col_date2 = st.columns(2)
+                                with col_date1:
+                                    date_from = st.date_input(
+                                        "Du", value=today - timedelta(days=30)
+                                    )
+                                    date_after = datetime.combine(
+                                        date_from, datetime.min.time()
+                                    ).isoformat()
+                                with col_date2:
+                                    date_to = st.date_input("Au", value=today)
+                                    date_before = datetime.combine(
+                                        date_to, datetime.max.time()
+                                    ).isoformat()
+
+                    with col3:
+                        # Récupérer les catégories disponibles
+                        try:
+                            connector = WordPressConnector(
+                                st.session_state.wp_base_domain,
+                                use_subdirectory=st.session_state.wp_use_subdirectory,
                             )
-                            per_page = st.slider("Articles par page", 5, 50, 20)
 
-                        with col2:
-                            # Filtre par date
-                            date_filter = st.selectbox(
-                                "Période",
-                                options=[
-                                    "Tous",
-                                    "Dernière semaine",
-                                    "Dernier mois",
-                                    "3 derniers mois",
-                                    "6 derniers mois",
-                                    "Dernière année",
-                                    "Personnalisé",
-                                ],
-                                index=0,
+                            categories = connector.get_categories(selected_subdomain)
+                            cat_options = {cat["name"]: cat["id"] for cat in categories}
+                            selected_cats = st.multiselect(
+                                "Catégories", options=list(cat_options.keys())
                             )
-
-                            date_after = None
-                            date_before = None
-
-                            if date_filter != "Tous":
-                                today = datetime.now()
-
-                                if date_filter == "Dernière semaine":
-                                    date_after = (today - timedelta(days=7)).isoformat()
-                                elif date_filter == "Dernier mois":
-                                    date_after = (
-                                        today - timedelta(days=30)
-                                    ).isoformat()
-                                elif date_filter == "3 derniers mois":
-                                    date_after = (
-                                        today - timedelta(days=90)
-                                    ).isoformat()
-                                elif date_filter == "6 derniers mois":
-                                    date_after = (
-                                        today - timedelta(days=180)
-                                    ).isoformat()
-                                elif date_filter == "Dernière année":
-                                    date_after = (
-                                        today - timedelta(days=365)
-                                    ).isoformat()
-                                elif date_filter == "Personnalisé":
-                                    col_date1, col_date2 = st.columns(2)
-                                    with col_date1:
-                                        date_from = st.date_input(
-                                            "Du", value=today - timedelta(days=30)
-                                        )
-                                        date_after = datetime.combine(
-                                            date_from, datetime.min.time()
-                                        ).isoformat()
-                                    with col_date2:
-                                        date_to = st.date_input("Au", value=today)
-                                        date_before = datetime.combine(
-                                            date_to, datetime.max.time()
-                                        ).isoformat()
-
-                        with col3:
-                            # Récupérer les catégories disponibles
-                            try:
-                                connector = WordPressConnector(
-                                    st.session_state.wp_base_domain,
-                                    use_subdirectory=st.session_state.wp_use_subdirectory,
-                                )
-
-                                categories = connector.get_categories(
-                                    selected_subdomain
-                                )
-                                cat_options = {
-                                    cat["name"]: cat["id"] for cat in categories
-                                }
-                                selected_cats = st.multiselect(
-                                    "Catégories", options=list(cat_options.keys())
-                                )
-                                selected_cat_ids = [
-                                    cat_options[cat] for cat in selected_cats
-                                ]
-                            except:
-                                selected_cat_ids = []
+                            selected_cat_ids = [
+                                cat_options[cat] for cat in selected_cats
+                            ]
+                        except:
+                            selected_cat_ids = []
 
                 # Bouton pour charger les articles
                 if st.button("📥 Charger les articles", type="primary"):
@@ -708,19 +690,14 @@ else:
                             "🤖 Lancer l'extraction LLM et sauvegarder", type="primary"
                         ):
                             # Déterminer le prompt système à utiliser
-                            prompt_id = (
-                                st.session_state.user_data.get("selected_prompt_id")
-                                if st.session_state.user_data
-                                else None
-                            )
-                            if not prompt_id:
-                                prompt_id = prompt_manager.get_default_prompt_id()
-
-                            system_prompt_to_use = prompt_manager.get_prompt_by_id(
-                                prompt_id
-                            )
-                            if not system_prompt_to_use:
-                                # Fallback sur le fichier par défaut
+                            if (
+                                st.session_state.user_data
+                                and st.session_state.user_data["custom_system_prompt"]
+                            ):
+                                system_prompt_to_use = st.session_state.user_data[
+                                    "custom_system_prompt"
+                                ]
+                            else:
                                 with open(
                                     SYSTEM_PROMPT_FILE, "r", encoding="utf-8"
                                 ) as f:
@@ -1438,61 +1415,54 @@ else:
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- Sélecteur de Prompt dans la Barre Latérale ---
+    # --- Éditeur de Prompt dans la Barre Latérale ---
     st.sidebar.title("Configuration")
-    with st.sidebar.expander("📝 Modèle d'extraction", expanded=False):
-        st.markdown("**Choisissez le type d'analyse :**")
+    with st.sidebar.expander("Éditer le prompt système", expanded=False):
+        # Déterminer la valeur initiale de l'éditeur de prompt
+        if (
+            st.session_state.user_data
+            and st.session_state.user_data["custom_system_prompt"]
+        ):
+            initial_prompt_value = st.session_state.user_data["custom_system_prompt"]
+            st.info("Vous utilisez un prompt personnalisé.")
+        else:
+            with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as f:
+                initial_prompt_value = f.read()
+            st.info("Vous utilisez le prompt système par défaut.")
 
-        # Récupérer les prompts disponibles
-        available_prompts = prompt_manager.get_available_prompts()
-
-        # Déterminer le prompt actuellement sélectionné
-        current_prompt_id = (
-            st.session_state.user_data.get("selected_prompt_id")
-            if st.session_state.user_data
-            else None
-        )
-        if not current_prompt_id:
-            current_prompt_id = prompt_manager.get_default_prompt_id()
-
-        # Créer les options pour le selectbox
-        prompt_options = {
-            f"{p['icon']} {p['name']}": p["id"] for p in available_prompts
-        }
-
-        # Trouver l'index actuel
-        current_index = 0
-        for idx, (label, pid) in enumerate(prompt_options.items()):
-            if pid == current_prompt_id:
-                current_index = idx
-                break
-
-        # Afficher le sélecteur
-        selected_label = st.selectbox(
-            "Type d'extraction",
-            options=list(prompt_options.keys()),
-            index=current_index,
-            label_visibility="collapsed",
+        prompt_area = st.text_area(
+            "Prompt Système:",
+            value=initial_prompt_value,
+            height=400,
+            key="prompt_editor",
         )
 
-        selected_prompt_id = prompt_options[selected_label]
-
-        # Afficher la description du prompt sélectionné
-        prompt_info = prompt_manager.get_prompt_info(selected_prompt_id)
-        if prompt_info:
-            st.caption(prompt_info["description"])
-
-        # Sauvegarder si changement
-        if selected_prompt_id != current_prompt_id:
-            if st.button("✅ Appliquer ce modèle", use_container_width=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Sauvegarder le Prompt Personnalisé"):
                 success, message = database.update_user_prompt(
-                    st.session_state.user_id, selected_prompt_id
+                    st.session_state.user_id, prompt_area
                 )
                 if success:
-                    st.session_state.user_data["selected_prompt_id"] = (
-                        selected_prompt_id
+                    st.session_state.user_data["custom_system_prompt"] = (
+                        prompt_area  # Mettre à jour l'état de la session
                     )
-                    st.success(f"Modèle changé : {prompt_info['name']}")
+                    st.success("Prompt personnalisé sauvegardé !")
                     st.rerun()
                 else:
-                    st.error(f"Erreur : {message}")
+                    st.error(f"Erreur lors de la sauvegarde du prompt : {message}")
+        with col2:
+            if st.button("Réinitialiser au Prompt par Défaut"):
+                success, message = database.update_user_prompt(
+                    st.session_state.user_id, None
+                )  # Mettre à NULL
+                if success:
+                    st.session_state.user_data["custom_system_prompt"] = (
+                        None  # Mettre à jour l'état de la session
+                    )
+                    st.success("Prompt réinitialisé au prompt par défaut !")
+                    st.rerun()
+                else:
+                    st.error(
+                        f"Erreur lors de la réinitialisation du prompt : {message}"
+                    )
