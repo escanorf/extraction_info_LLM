@@ -20,6 +20,7 @@ STREAMLIT_SECRETS.txt
 
 # Deployment guides (contiennent des infos sensibles)
 SUPABASE_SETUP.md
+STREAMLIT_CLOUD_DEPLOY.md
 
 # Backup files
 *.backup
