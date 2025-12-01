@@ -12,3 +12,15 @@ __pycache__/
 # Credentials and secrets
 credentials.json
 .streamlit/secrets.toml
+
+# Vercel
+.vercel
+VERCEL_ENV_VARIABLES.txt
+
+# Deployment guides (contiennent des infos sensibles)
+SUPABASE_SETUP.md
+DEPLOYMENT_GUIDE.md
+
+# Backup files
+*.backup
+*.git_version
