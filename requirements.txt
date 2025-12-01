@@ -1,26 +1,18 @@
 # === Core Dependencies ===
-streamlit==1.51.0
-python-dotenv==1.0.0
+streamlit
+python-dotenv
 
 # === Database ===
-psycopg2-binary==2.9.11
+psycopg2-binary
 
 # === Password Hashing ===
-bcrypt==5.0.0
+bcrypt
 
 # === OpenAI API ===
-openai==2.8.1
+openai
 
 # === Data Processing ===
-pandas==2.3.3
+pandas
 
 # === HTTP Requests ===
-requests==2.32.5
-
-# === Google Sheets (Export optionnel) ===
-# Décommentez ces lignes si vous utilisez l'export Google Sheets
-# gspread
-# oauth2client
-
-# === WordPress Connector (si utilisé) ===
-# Ajouter si nécessaire
+requests
