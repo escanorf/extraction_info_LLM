@@ -1,18 +1,7 @@
-# === Core Dependencies ===
 streamlit
 python-dotenv
-
-# === Database ===
-psycopg2-binary
-
-# === Password Hashing ===
+psycopg2-binary==2.9.9
 bcrypt
-
-# === OpenAI API ===
 openai
-
-# === Data Processing ===
 pandas
-
-# === HTTP Requests ===
 requests
