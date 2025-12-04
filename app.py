@@ -1091,7 +1091,10 @@ else:
                                 ]
 
                                 # Chemin vers le fichier credentials
-                                creds_file = "credentials.json"
+                                creds_file = os.path.join(
+                                    os.path.dirname(os.path.abspath(__file__)),
+                                    "credentials.json",
+                                )
                                 if not os.path.exists(creds_file):
                                     st.error(
                                         "Le fichier credentials.json est introuvable. Assurez-vous qu'il est dans le répertoire du projet."
