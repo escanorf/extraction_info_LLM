@@ -205,7 +205,7 @@ class WordPressConnector:
 
     def get_categories(self, subdomain: str) -> List[Dict]:
         """
-        Récupère les catégories disponibles sur un sous-domaine
+        Récupère toutes les catégories disponibles sur un sous-domaine
 
         Args:
             subdomain: Sous-domaine
@@ -220,23 +220,44 @@ class WordPressConnector:
         api_url = f"{site_url}/wp-json/wp/v2/categories"
 
         try:
-            response = requests.get(
-                api_url, params={"per_page": 100}, auth=self.auth, timeout=30
-            )
-            response.raise_for_status()
+            all_categories = []
+            page = 1
 
-            categories = response.json()
-            return [
-                {"id": cat["id"], "name": cat["name"], "count": cat["count"]}
-                for cat in categories
-            ]
+            while True:
+                response = requests.get(
+                    api_url,
+                    params={"per_page": 100, "page": page},
+                    auth=self.auth,
+                    timeout=30,
+                )
+                response.raise_for_status()
+
+                categories = response.json()
+                if not categories:
+                    break
+
+                all_categories.extend(
+                    [
+                        {"id": cat["id"], "name": cat["name"], "count": cat["count"]}
+                        for cat in categories
+                    ]
+                )
+
+                # Vérifier s'il y a d'autres pages
+                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
+                if page >= total_pages:
+                    break
+
+                page += 1
+
+            return all_categories
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Erreur lors de la récupération des catégories: {str(e)}")
 
     def get_tags(self, subdomain: str) -> List[Dict]:
         """
-        Récupère les tags disponibles sur un sous-domaine
+        Récupère tous les tags disponibles sur un sous-domaine
 
         Args:
             subdomain: Sous-domaine
@@ -251,16 +272,37 @@ class WordPressConnector:
         api_url = f"{site_url}/wp-json/wp/v2/tags"
 
         try:
-            response = requests.get(
-                api_url, params={"per_page": 100}, auth=self.auth, timeout=30
-            )
-            response.raise_for_status()
+            all_tags = []
+            page = 1
 
-            tags = response.json()
-            return [
-                {"id": tag["id"], "name": tag["name"], "count": tag["count"]}
-                for tag in tags
-            ]
+            while True:
+                response = requests.get(
+                    api_url,
+                    params={"per_page": 100, "page": page},
+                    auth=self.auth,
+                    timeout=30,
+                )
+                response.raise_for_status()
+
+                tags = response.json()
+                if not tags:
+                    break
+
+                all_tags.extend(
+                    [
+                        {"id": tag["id"], "name": tag["name"], "count": tag["count"]}
+                        for tag in tags
+                    ]
+                )
+
+                # Vérifier s'il y a d'autres pages
+                total_pages = int(response.headers.get("X-WP-TotalPages", 1))
+                if page >= total_pages:
+                    break
+
+                page += 1
+
+            return all_tags
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Erreur lors de la récupération des tags: {str(e)}")
