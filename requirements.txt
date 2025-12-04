@@ -5,3 +5,5 @@ bcrypt
 openai
 pandas
 requests
+gspread
+oauth2client
