@@ -56,6 +56,7 @@ class WordPressConnector:
         page: int = 1,
         search: str = "",
         categories: List[int] = None,
+        tags: List[int] = None,
         after: str = None,
         before: str = None,
     ) -> Dict:
@@ -68,6 +69,7 @@ class WordPressConnector:
             page: Numéro de page
             search: Terme de recherche (optionnel)
             categories: Liste d'IDs de catégories (optionnel)
+            tags: Liste d'IDs de tags (optionnel)
             after: Date ISO 8601 - articles après cette date (optionnel)
             before: Date ISO 8601 - articles avant cette date (optionnel)
 
@@ -93,6 +95,9 @@ class WordPressConnector:
 
         if categories:
             params["categories"] = ",".join(map(str, categories))
+
+        if tags:
+            params["tags"] = ",".join(map(str, tags))
 
         if after:
             params["after"] = after
@@ -228,6 +233,37 @@ class WordPressConnector:
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Erreur lors de la récupération des catégories: {str(e)}")
+
+    def get_tags(self, subdomain: str) -> List[Dict]:
+        """
+        Récupère les tags disponibles sur un sous-domaine
+
+        Args:
+            subdomain: Sous-domaine
+
+        Returns:
+            Liste des tags avec ID et nom
+        """
+        if self.use_subdirectory:
+            site_url = f"https://{self.base_domain}/{subdomain}"
+        else:
+            site_url = f"https://{subdomain}.{self.base_domain}"
+        api_url = f"{site_url}/wp-json/wp/v2/tags"
+
+        try:
+            response = requests.get(
+                api_url, params={"per_page": 100}, auth=self.auth, timeout=30
+            )
+            response.raise_for_status()
+
+            tags = response.json()
+            return [
+                {"id": tag["id"], "name": tag["name"], "count": tag["count"]}
+                for tag in tags
+            ]
+
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Erreur lors de la récupération des tags: {str(e)}")
 
     def test_connection(self, subdomain: str) -> Dict:
         """

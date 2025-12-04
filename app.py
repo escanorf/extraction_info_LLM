@@ -522,71 +522,50 @@ else:
                 if st.session_state.wp_selected_subdomain == selected_subdomain:
                     st.subheader("3️⃣ Sélection des Articles")
 
+                    # Initialiser les filtres dans session_state si nécessaire
+                    if "wp_filter_search" not in st.session_state:
+                        st.session_state.wp_filter_search = ""
+                    if "wp_filter_per_page" not in st.session_state:
+                        st.session_state.wp_filter_per_page = 20
+                    if "wp_filter_date" not in st.session_state:
+                        st.session_state.wp_filter_date = "Tous"
+                    if "wp_filter_categories" not in st.session_state:
+                        st.session_state.wp_filter_categories = []
+                    if "wp_filter_tags" not in st.session_state:
+                        st.session_state.wp_filter_tags = []
+
                     # Filtres
-                    with st.expander("🎛️ Filtres", expanded=False):
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
+                    with st.expander("🎛️ Filtres et recherche", expanded=True):
+                        # Ligne 1: Recherche et nombre d'articles
+                        st.markdown("**🔍 Recherche**")
+                        col_search1, col_search2 = st.columns([3, 1])
+                        with col_search1:
                             search_term = st.text_input(
-                                "Rechercher", placeholder="Mot-clé..."
+                                "Mot-clé",
+                                value=st.session_state.wp_filter_search,
+                                placeholder="Rechercher dans les articles...",
+                                label_visibility="collapsed",
+                                key="search_input",
                             )
-                            per_page = st.slider("Articles par page", 5, 50, 20)
+                            st.session_state.wp_filter_search = search_term
 
-                        with col2:
-                            # Filtre par date
-                            date_filter = st.selectbox(
-                                "Période",
-                                options=[
-                                    "Tous",
-                                    "Dernière semaine",
-                                    "Dernier mois",
-                                    "3 derniers mois",
-                                    "6 derniers mois",
-                                    "Dernière année",
-                                    "Personnalisé",
-                                ],
-                                index=0,
+                        with col_search2:
+                            per_page = st.slider(
+                                "Articles par page",
+                                5,
+                                50,
+                                st.session_state.wp_filter_per_page,
+                                key="per_page_slider",
                             )
+                            st.session_state.wp_filter_per_page = per_page
 
-                            date_after = None
-                            date_before = None
+                        st.divider()
 
-                            if date_filter != "Tous":
-                                today = datetime.now()
+                        # Ligne 2: Filtres par taxonomie
+                        st.markdown("**📑 Taxonomies**")
+                        col_tax1, col_tax2 = st.columns(2)
 
-                                if date_filter == "Dernière semaine":
-                                    date_after = (today - timedelta(days=7)).isoformat()
-                                elif date_filter == "Dernier mois":
-                                    date_after = (
-                                        today - timedelta(days=30)
-                                    ).isoformat()
-                                elif date_filter == "3 derniers mois":
-                                    date_after = (
-                                        today - timedelta(days=90)
-                                    ).isoformat()
-                                elif date_filter == "6 derniers mois":
-                                    date_after = (
-                                        today - timedelta(days=180)
-                                    ).isoformat()
-                                elif date_filter == "Dernière année":
-                                    date_after = (
-                                        today - timedelta(days=365)
-                                    ).isoformat()
-                                elif date_filter == "Personnalisé":
-                                    col_date1, col_date2 = st.columns(2)
-                                    with col_date1:
-                                        date_from = st.date_input(
-                                            "Du", value=today - timedelta(days=30)
-                                        )
-                                        date_after = datetime.combine(
-                                            date_from, datetime.min.time()
-                                        ).isoformat()
-                                    with col_date2:
-                                        date_to = st.date_input("Au", value=today)
-                                        date_before = datetime.combine(
-                                            date_to, datetime.max.time()
-                                        ).isoformat()
-
-                        with col3:
+                        with col_tax1:
                             # Récupérer les catégories disponibles
                             try:
                                 connector = WordPressConnector(
@@ -601,16 +580,160 @@ else:
                                     cat["name"]: cat["id"] for cat in categories
                                 }
                                 selected_cats = st.multiselect(
-                                    "Catégories", options=list(cat_options.keys())
+                                    "🏷️ Catégories",
+                                    options=list(cat_options.keys()),
+                                    default=st.session_state.wp_filter_categories,
+                                    key="categories_select",
                                 )
+                                st.session_state.wp_filter_categories = selected_cats
                                 selected_cat_ids = [
                                     cat_options[cat] for cat in selected_cats
                                 ]
                             except:
                                 selected_cat_ids = []
+                                st.caption("⚠️ Impossible de charger les catégories")
+
+                        with col_tax2:
+                            # Récupérer les tags disponibles
+                            try:
+                                connector = WordPressConnector(
+                                    st.session_state.wp_base_domain,
+                                    use_subdirectory=st.session_state.wp_use_subdirectory,
+                                )
+
+                                tags = connector.get_tags(selected_subdomain)
+                                tag_options = {tag["name"]: tag["id"] for tag in tags}
+                                selected_tags = st.multiselect(
+                                    "🔖 Tags",
+                                    options=list(tag_options.keys()),
+                                    default=st.session_state.wp_filter_tags,
+                                    key="tags_select",
+                                )
+                                st.session_state.wp_filter_tags = selected_tags
+                                selected_tag_ids = [
+                                    tag_options[tag] for tag in selected_tags
+                                ]
+                            except:
+                                selected_tag_ids = []
+                                st.caption("⚠️ Impossible de charger les tags")
+
+                        st.divider()
+
+                        # Ligne 3: Filtre par date
+                        st.markdown("**📅 Période**")
+                        col_date1, col_date2 = st.columns([1, 2])
+
+                        with col_date1:
+                            date_filter = st.selectbox(
+                                "Période",
+                                options=[
+                                    "Tous",
+                                    "Dernière semaine",
+                                    "Dernier mois",
+                                    "3 derniers mois",
+                                    "6 derniers mois",
+                                    "Dernière année",
+                                    "Personnalisé",
+                                ],
+                                index=[
+                                    "Tous",
+                                    "Dernière semaine",
+                                    "Dernier mois",
+                                    "3 derniers mois",
+                                    "6 derniers mois",
+                                    "Dernière année",
+                                    "Personnalisé",
+                                ].index(st.session_state.wp_filter_date),
+                                key="date_filter_select",
+                                label_visibility="collapsed",
+                            )
+                            st.session_state.wp_filter_date = date_filter
+
+                        date_after = None
+                        date_before = None
+
+                        with col_date2:
+                            if date_filter == "Personnalisé":
+                                col_date_from, col_date_to = st.columns(2)
+                                today = datetime.now()
+                                with col_date_from:
+                                    date_from = st.date_input(
+                                        "Du", value=today - timedelta(days=30)
+                                    )
+                                    date_after = datetime.combine(
+                                        date_from, datetime.min.time()
+                                    ).isoformat()
+                                with col_date_to:
+                                    date_to = st.date_input("Au", value=today)
+                                    date_before = datetime.combine(
+                                        date_to, datetime.max.time()
+                                    ).isoformat()
+                            else:
+                                if date_filter != "Tous":
+                                    today = datetime.now()
+                                    if date_filter == "Dernière semaine":
+                                        date_after = (
+                                            today - timedelta(days=7)
+                                        ).isoformat()
+                                    elif date_filter == "Dernier mois":
+                                        date_after = (
+                                            today - timedelta(days=30)
+                                        ).isoformat()
+                                    elif date_filter == "3 derniers mois":
+                                        date_after = (
+                                            today - timedelta(days=90)
+                                        ).isoformat()
+                                    elif date_filter == "6 derniers mois":
+                                        date_after = (
+                                            today - timedelta(days=180)
+                                        ).isoformat()
+                                    elif date_filter == "Dernière année":
+                                        date_after = (
+                                            today - timedelta(days=365)
+                                        ).isoformat()
+
+                                if date_after:
+                                    st.caption(
+                                        f"📆 Articles depuis le {datetime.fromisoformat(date_after).strftime('%d/%m/%Y')}"
+                                    )
+
+                        st.divider()
+
+                        # Boutons d'action
+                        col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
+                        with col_btn1:
+                            load_button = st.button(
+                                "📥 Charger les articles",
+                                type="primary",
+                                use_container_width=True,
+                            )
+                        with col_btn2:
+                            if st.button("🔄 Réinitialiser", use_container_width=True):
+                                st.session_state.wp_filter_search = ""
+                                st.session_state.wp_filter_per_page = 20
+                                st.session_state.wp_filter_date = "Tous"
+                                st.session_state.wp_filter_categories = []
+                                st.session_state.wp_filter_tags = []
+                                st.rerun()
+                        with col_btn3:
+                            # Afficher le nombre de filtres actifs
+                            active_filters = 0
+                            if search_term:
+                                active_filters += 1
+                            if selected_cat_ids:
+                                active_filters += len(selected_cat_ids)
+                            if selected_tag_ids:
+                                active_filters += len(selected_tag_ids)
+                            if date_filter != "Tous":
+                                active_filters += 1
+
+                            if active_filters > 0:
+                                st.info(
+                                    f"🎯 {active_filters} filtre{'s' if active_filters > 1 else ''}"
+                                )
 
                 # Bouton pour charger les articles
-                if st.button("📥 Charger les articles", type="primary"):
+                if load_button:
                     with st.spinner("Chargement des articles..."):
                         try:
                             connector = WordPressConnector(
@@ -625,6 +748,7 @@ else:
                                 categories=selected_cat_ids
                                 if selected_cat_ids
                                 else None,
+                                tags=selected_tag_ids if selected_tag_ids else None,
                                 after=date_after,
                                 before=date_before,
                             )
